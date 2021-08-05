@@ -1,0 +1,608 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>landing-log-parser: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/mornyx/landing-log-parser/logparser.go (78.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package logparser provides a parser implementation for parsing Unified Log Format.
+//
+// For more information about the Unified Log Format,
+// see https://github.com/tikv/rfcs/blob/master/text/0018-unified-log-format.md
+package logparser
+
+import (
+        "bufio"
+        "bytes"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "io"
+        "strconv"
+        "strings"
+        "time"
+)
+
+// LogLevel is an enumeration type for the log level.
+type LogLevel int
+
+const (
+        LogLevelDebug LogLevel = iota
+        LogLevelInfo
+        LogLevelWarn
+        LogLevelError
+        LogLevelFatal
+)
+
+func (l LogLevel) String() string <span class="cov8" title="1">{
+        switch l </span>{
+        case LogLevelDebug:<span class="cov8" title="1">
+                return "DEBUG"</span>
+        case LogLevelInfo:<span class="cov8" title="1">
+                return "INFO"</span>
+        case LogLevelWarn:<span class="cov8" title="1">
+                return "WARN"</span>
+        case LogLevelError:<span class="cov8" title="1">
+                return "ERROR"</span>
+        case LogLevelFatal:<span class="cov8" title="1">
+                return "FATAL"</span>
+        default:<span class="cov8" title="1">
+                panic("unexpected log level value")</span> // unreachable
+        }
+}
+
+// StringToLogLevel converts the string log level to the enumeration type.
+// An error is returned if the string is not recognized.
+func StringToLogLevel(s string) (LogLevel, error) <span class="cov8" title="1">{
+        switch strings.ToUpper(s) </span>{
+        case "DEBUG":<span class="cov8" title="1">
+                return LogLevelDebug, nil</span>
+        case "INFO":<span class="cov8" title="1">
+                return LogLevelInfo, nil</span>
+        case "WARN":<span class="cov8" title="1">
+                return LogLevelWarn, nil</span>
+        case "ERROR":<span class="cov8" title="1">
+                return LogLevelError, nil</span>
+        case "FATAL":<span class="cov8" title="1">
+                return LogLevelFatal, nil</span>
+        default:<span class="cov8" title="1">
+                return -1, fmt.Errorf("unexpected log level string '%s'", s)</span>
+        }
+}
+
+// LogHeader defines the header of one log.
+type LogHeader struct {
+        DateTime time.Time
+        Level    LogLevel
+        File     string
+        Line     int
+}
+
+// LogField defines one k/v field of one log.
+type LogField struct {
+        Name  string
+        Value string
+}
+
+// LogEntry defines an entire log entry.
+type LogEntry struct {
+        Header  LogHeader
+        Message string
+        Fields  []LogField // TODO: considering hashmap
+}
+
+// ParseFromBytes parses a byte slice as *LogEntry slice.
+func ParseFromBytes(r []byte) ([]*LogEntry, error) <span class="cov8" title="1">{
+        return ParseFromReader(bytes.NewReader(r))
+}</span>
+
+// ParseFromString parses a string as *LogEntry slice.
+func ParseFromString(r string) ([]*LogEntry, error) <span class="cov8" title="1">{
+        return ParseFromReader(strings.NewReader(r))
+}</span>
+
+// ParseFromReader parses a byte stream from io.Reader as *LogEntry slice.
+// The function continues to run until the reader returns io.EOF.
+func ParseFromReader(r io.Reader) ([]*LogEntry, error) <span class="cov8" title="1">{
+        var entries []*LogEntry
+        p := NewStreamParser(r)
+        for </span><span class="cov8" title="1">{
+                entry, err := p.ParseNext()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if entry == nil </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">entries = append(entries, entry)</span>
+        }
+        <span class="cov8" title="1">return entries, nil</span>
+}
+
+// StreamParser is a parser implementation which parses bytes from
+// io.Reader into individual *LogEntry. Users can parse large log files
+// on demand without having to read them all into memory at once.
+type StreamParser struct {
+        br          *bufio.Reader
+        line        int
+        datetimeBuf [30]byte
+        levelBuf    [5]byte
+}
+
+// NewStreamParser creates new *StreamParser associated with the io.Reader.
+func NewStreamParser(r io.Reader) *StreamParser <span class="cov8" title="1">{
+        return &amp;StreamParser{
+                br:   bufio.NewReader(r),
+                line: 1,
+        }
+}</span>
+
+// ParseNext reads and parses one LogEntry from bufio.Reader on demand.
+// This function will return (nil, nil) if the underlying io.Reader returns
+// io.EOF in the standard case.
+func (p *StreamParser) ParseNext() (*LogEntry, error) <span class="cov8" title="1">{
+        // Skip empty lines.
+        if err := p.trimNewLines(); err != nil </span><span class="cov8" title="1">{
+                if err == io.EOF </span><span class="cov8" title="1">{
+                        return nil, nil
+                }</span>
+                <span class="cov0" title="0">return nil, p.wrapErr(err)</span>
+        }
+        // Skip spaces at the beginning of the line.
+        <span class="cov8" title="1">if err := p.trimChar(' '); err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Parse datetime.
+        <span class="cov8" title="1">datetime, err := p.parseDatetime()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Skip one space.
+        <span class="cov8" title="1">if err := p.skipChar(' '); err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Parse log level.
+        <span class="cov8" title="1">level, err := p.parseLogLevel()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Skip one space.
+        <span class="cov8" title="1">if err := p.skipChar(' '); err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Parse file:line.
+        <span class="cov8" title="1">filename, line, err := p.parseFileLine()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Skip one space.
+        <span class="cov8" title="1">if err := p.skipChar(' '); err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Parse message.
+        <span class="cov8" title="1">message, err := p.parseMessage()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Parse fields.
+        <span class="cov8" title="1">fields, err := p.parseFields()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        // Skip spaces at the end of the line.
+        <span class="cov8" title="1">if err := p.trimChar(' '); err != nil &amp;&amp; err != io.EOF </span><span class="cov0" title="0">{
+                return nil, p.wrapErr(err)
+        }</span>
+        <span class="cov8" title="1">return &amp;LogEntry{
+                Header: LogHeader{
+                        DateTime: datetime,
+                        Level:    level,
+                        File:     filename,
+                        Line:     line,
+                },
+                Message: message,
+                Fields:  fields,
+        }, nil</span>
+}
+
+func (p *StreamParser) wrapErr(cause error) error <span class="cov0" title="0">{
+        return fmt.Errorf("invalid log format at line %d, cause: %v", p.line, cause)
+}</span>
+
+func (p *StreamParser) skipChar(expect rune) error <span class="cov8" title="1">{
+        c, _, err := p.br.ReadRune()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if c != expect </span><span class="cov8" title="1">{
+                return fmt.Errorf("expect '%c' but found '%c'", expect, c)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (p *StreamParser) trimChar(skip rune) error <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov8" title="1">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">if c != skip </span><span class="cov8" title="1">{
+                        return p.br.UnreadRune()
+                }</span>
+        }
+}
+
+func (p *StreamParser) trimNewLines() error <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov8" title="1">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">if c == '\r' </span><span class="cov8" title="1">{
+                        c, _, err = p.br.ReadRune()
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov8" title="1">if c != '\n' </span><span class="cov0" title="0">{
+                                return fmt.Errorf("expect '\n' but found '%c'", c)
+                        }</span>
+                }
+                <span class="cov8" title="1">if c != '\n' </span><span class="cov8" title="1">{
+                        return p.br.UnreadRune()
+                }</span>
+                <span class="cov8" title="1">p.line++</span>
+        }
+}
+
+func (p *StreamParser) parseDatetime() (time.Time, error) <span class="cov8" title="1">{
+        if err := p.skipChar('['); err != nil </span><span class="cov0" title="0">{
+                return time.Time{}, err
+        }</span>
+        <span class="cov8" title="1">n := 0
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return time.Time{}, err
+                }</span>
+                <span class="cov8" title="1">if c == ']' </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">if !validDatetimeChar(c) </span><span class="cov0" title="0">{
+                        return time.Time{}, fmt.Errorf("unexpected character '%c'", c)
+                }</span>
+                <span class="cov8" title="1">if n &gt;= len(p.datetimeBuf) </span><span class="cov0" title="0">{
+                        return time.Time{}, errors.New("datetime too long")
+                }</span>
+                <span class="cov8" title="1">p.datetimeBuf[n] = byte(c)
+                n++</span>
+        }
+        <span class="cov8" title="1">return time.Parse("2006/01/02 15:04:05.000 -07:00", string(p.datetimeBuf[:n]))</span>
+}
+
+func (p *StreamParser) parseLogLevel() (LogLevel, error) <span class="cov8" title="1">{
+        if err := p.skipChar('['); err != nil </span><span class="cov0" title="0">{
+                return -1, err
+        }</span>
+        <span class="cov8" title="1">n := 0
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return -1, err
+                }</span>
+                <span class="cov8" title="1">if c == ']' </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">if !validLogLevelChar(c) </span><span class="cov0" title="0">{
+                        return -1, fmt.Errorf("unexpected character '%c'", c)
+                }</span>
+                <span class="cov8" title="1">if n &gt;= len(p.levelBuf) </span><span class="cov0" title="0">{
+                        return -1, errors.New("log level too long")
+                }</span>
+                <span class="cov8" title="1">p.levelBuf[n] = byte(c)
+                n++</span>
+        }
+        <span class="cov8" title="1">return StringToLogLevel(string(p.levelBuf[:n]))</span>
+}
+
+func (p *StreamParser) parseFileLine() (string, int, error) <span class="cov8" title="1">{
+        if err := p.skipChar('['); err != nil </span><span class="cov0" title="0">{
+                return "", 0, err
+        }</span>
+        <span class="cov8" title="1">c, _, err := p.br.ReadRune()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", 0, err
+        }</span>
+        <span class="cov8" title="1">if c == '&lt;' </span><span class="cov8" title="1">{
+                // [&lt;unknown&gt;]
+                for </span><span class="cov8" title="1">{
+                        c, _, err := p.br.ReadRune()
+                        if err != nil </span><span class="cov0" title="0">{
+                                return "", 0, err
+                        }</span>
+                        <span class="cov8" title="1">if c == ']' </span><span class="cov8" title="1">{
+                                break</span>
+                        }
+                        <span class="cov8" title="1">if !((c &gt;= 'a' &amp;&amp; c &lt;= 'z') || c == '&lt;' || c == '&gt;') </span><span class="cov0" title="0">{
+                                return "", 0, fmt.Errorf("unexpected character '%c'", c)
+                        }</span>
+                }
+                <span class="cov8" title="1">return "", 0, nil</span>
+        } else<span class="cov8" title="1"> {
+                if err := p.br.UnreadRune(); err != nil </span><span class="cov0" title="0">{
+                        return "", 0, err
+                }</span>
+        }
+        // [file:line]
+        <span class="cov8" title="1">var filename, line []rune
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", 0, err
+                }</span>
+                <span class="cov8" title="1">if c == ':' </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">if !validFilenameChar(c) </span><span class="cov0" title="0">{
+                        return "", 0, fmt.Errorf("unexpected character '%c'", c)
+                }</span>
+                <span class="cov8" title="1">filename = append(filename, c)</span>
+        }
+        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", 0, err
+                }</span>
+                <span class="cov8" title="1">if c == ']' </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">if !validLineNumberChar(c) </span><span class="cov0" title="0">{
+                        return "", 0, fmt.Errorf("unexpected character '%c'", c)
+                }</span>
+                <span class="cov8" title="1">line = append(line, c)</span>
+        }
+        <span class="cov8" title="1">lineNum, err := strconv.Atoi(string(line))
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span> // unreachable
+        }
+        <span class="cov8" title="1">return string(filename), lineNum, nil</span>
+}
+
+func (p *StreamParser) parseMessage() (string, error) <span class="cov8" title="1">{
+        if err := p.skipChar('['); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">r, err := p.parseStringLiteral()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">if err := p.skipChar(']'); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return r, nil</span>
+}
+
+func (p *StreamParser) parseFields() ([]LogField, error) <span class="cov8" title="1">{
+        var fields []LogField
+        for </span><span class="cov8" title="1">{
+                if err := p.trimChar(' '); err != nil </span><span class="cov8" title="1">{
+                        if err == io.EOF </span><span class="cov8" title="1">{
+                                return fields, nil
+                        }</span>
+                        <span class="cov0" title="0">return nil, err</span>
+                }
+                <span class="cov8" title="1">c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if c != '[' </span><span class="cov8" title="1">{
+                        if err := p.br.UnreadRune(); err != nil </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                        <span class="cov8" title="1">return fields, nil</span>
+                }
+                <span class="cov8" title="1">name, err := p.parseStringLiteral()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if err := p.skipChar('='); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">value, err := p.parseStringLiteral()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if err := p.skipChar(']'); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">fields = append(fields, LogField{
+                        Name:  name,
+                        Value: value,
+                })</span>
+        }
+}
+
+// TODO: optimize
+func (p *StreamParser) parseStringLiteral() (string, error) <span class="cov8" title="1">{
+        c, _, err := p.br.ReadRune()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">if err := p.br.UnreadRune(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">if c == '"' </span><span class="cov8" title="1">{
+                return p.parseStringJson()
+        }</span>
+        <span class="cov8" title="1">var literal []rune
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+                <span class="cov8" title="1">if !validStringLiteralChar(c) </span><span class="cov8" title="1">{
+                        if err := p.br.UnreadRune(); err != nil </span><span class="cov0" title="0">{
+                                return "", err
+                        }</span>
+                        <span class="cov8" title="1">break</span>
+                }
+                <span class="cov8" title="1">literal = append(literal, c)</span>
+        }
+        <span class="cov8" title="1">return string(literal), nil</span>
+}
+
+// TODO: optimize
+func (p *StreamParser) parseStringJson() (string, error) <span class="cov8" title="1">{
+        quotes := 0
+        var literal []rune
+Loop:
+        for </span><span class="cov8" title="1">{
+                c, _, err := p.br.ReadRune()
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+                <span class="cov8" title="1">literal = append(literal, c)
+                switch c </span>{
+                case '\\':<span class="cov8" title="1">
+                        c, _, err := p.br.ReadRune()
+                        if err != nil </span><span class="cov0" title="0">{
+                                return "", err
+                        }</span>
+                        <span class="cov8" title="1">literal = append(literal, c)</span>
+                case '"':<span class="cov8" title="1">
+                        quotes++
+                        if quotes == 2 </span><span class="cov8" title="1">{
+                                break Loop</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">var r string
+        err := json.Unmarshal([]byte(string(literal)), &amp;r)
+        return r, err</span>
+}
+
+func validDatetimeChar(c rune) bool <span class="cov8" title="1">{
+        return (c &gt;= '0' &amp;&amp; c &lt;= '9') ||
+                c == '/' ||
+                c == ' ' ||
+                c == ':' ||
+                c == '.' ||
+                c == '+' ||
+                c == '-'
+}</span>
+
+func validLogLevelChar(c rune) bool <span class="cov8" title="1">{
+        return c &gt;= 'A' &amp;&amp; c &lt;= 'Z'
+}</span>
+
+func validFilenameChar(c rune) bool <span class="cov8" title="1">{
+        return (c &gt;= 'a' &amp;&amp; c &lt;= 'z') ||
+                (c &gt;= 'A' &amp;&amp; c &lt;= 'Z') ||
+                (c &gt;= '0' &amp;&amp; c &lt;= '9') ||
+                c == '.' ||
+                c == '-' ||
+                c == '_'
+}</span>
+
+func validLineNumberChar(c rune) bool <span class="cov8" title="1">{
+        return c &gt;= '0' &amp;&amp; c &lt;= '9'
+}</span>
+
+func validStringLiteralChar(c rune) bool <span class="cov8" title="1">{
+        return !((c &gt;= 0x0000 &amp;&amp; c &lt;= 0x0020) || c == '"' || c == '=' || c == '[' || c == ']')
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

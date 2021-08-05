@@ -1,0 +1,5 @@
+.DS_Store
+.idea
+*.iml
+/target
+/cmd/log-parser/log-parser
