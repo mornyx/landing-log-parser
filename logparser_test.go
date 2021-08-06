@@ -28,10 +28,8 @@ func TestLogLevel(t *testing.T) {
 	assert.Equal(t, LogLevelFatal, level)
 	level, err = StringToLogLevel("UNKNOWN")
 	assert.Error(t, err)
-	assert.Equal(t, LogLevel(-1), level)
-	assert.Panics(t, func() {
-		_ = LogLevel(9999).String()
-	})
+	assert.Equal(t, LogLevelInfo, level)
+	assert.Equal(t, "LEVEL(9999)", LogLevel(9999).String())
 }
 
 func TestStreamParser_skipChar(t *testing.T) {

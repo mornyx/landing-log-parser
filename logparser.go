@@ -20,7 +20,7 @@ import (
 type LogLevel int
 
 const (
-	LogLevelDebug LogLevel = iota
+	LogLevelDebug LogLevel = iota - 1
 	LogLevelInfo
 	LogLevelWarn
 	LogLevelError
@@ -40,7 +40,7 @@ func (l LogLevel) String() string {
 	case LogLevelFatal:
 		return "FATAL"
 	default:
-		panic("unexpected log level value") // unreachable
+		return fmt.Sprintf("LEVEL(%d)", l) // unreachable
 	}
 }
 
@@ -59,7 +59,7 @@ func StringToLogLevel(s string) (LogLevel, error) {
 	case "FATAL":
 		return LogLevelFatal, nil
 	default:
-		return -1, fmt.Errorf("unexpected log level string '%s'", s)
+		return LogLevelInfo, fmt.Errorf("unexpected log level string '%s'", s)
 	}
 }
 
