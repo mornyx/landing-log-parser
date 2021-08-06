@@ -237,7 +237,7 @@ func (p *StreamParser) trimNewLines() error {
 				return err
 			}
 			if c != '\n' {
-				return fmt.Errorf("expect '\n' but found '%c'", c)
+				return fmt.Errorf("expect '\\n' but found '%c'", c)
 			}
 		}
 		if c != '\n' {
