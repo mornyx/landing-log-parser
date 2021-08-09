@@ -40,5 +40,9 @@ func BenchmarkStreamParserWithIO(b *testing.B) {
 				break
 			}
 		}
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
