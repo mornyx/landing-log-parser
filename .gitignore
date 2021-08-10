@@ -3,3 +3,8 @@
 *.iml
 /target
 /cmd/log-parser/log-parser
+/cover.out
+/cover.txt
+/cover.html
+/benches/*.pprof
+/benches/benches.test
