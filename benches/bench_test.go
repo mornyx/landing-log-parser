@@ -8,6 +8,8 @@ import (
 	logparser "github.com/mornyx/landing-log-parser"
 )
 
+// TODO: test blob generator
+
 func BenchmarkStreamParser(b *testing.B) {
 	content, err := ioutil.ReadFile("bench_100k.log")
 	if err != nil {
